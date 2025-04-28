@@ -3653,62 +3653,62 @@ impl<'c> Translation<'c> {
                         }
                     };
 
-                    if let Some(arr) = simple_index_array {
-                        // If the LHS just underwent an implicit cast from array to pointer, bypass that
-                        // to make an actual Rust indexing operation
+                    //                    if let Some(arr) = simple_index_array {
+                    //                        // If the LHS just underwent an implicit cast from array to pointer, bypass that
+                    //                        // to make an actual Rust indexing operation
+                    //
+                    //                        let t = self.ast_context[arr]
+                    //                            .kind
+                    //                            .get_type()
+                    //                            .ok_or_else(|| format_err!("bad arr type"))?;
+                    //                        let var_elt_type_id = match self.ast_context.resolve_type(t).kind {
+                    //                            CTypeKind::ConstantArray(..) => None,
+                    //                            CTypeKind::IncompleteArray(..) => None,
+                    //                            CTypeKind::VariableArray(elt, _) => Some(elt),
+                    //                            ref other => panic!("Unexpected array type {:?}", other),
+                    //                        };
+                    //
+                    //                        let lhs = self.convert_expr(ctx.used(), arr)?;
+                    //                        Ok(lhs.map(|lhs| {
+                    //                            // stmts.extend(lhs.stmts_mut());
+                    //                            // is_unsafe = is_unsafe || lhs.is_unsafe();
+                    //
+                    //                            // Don't dereference the offset if we're still within the variable portion
+                    //                            if let Some(elt_type_id) = var_elt_type_id {
+                    //                                let mul = self.compute_size_of_expr(elt_type_id);
+                    //                                pointer_offset(lhs, rhs, mul, false, true)
+                    //                            } else {
+                    //                                mk().index_expr(lhs, cast_int(rhs, "usize", false))
+                    //                            }
+                    //                        }))
+                    //                    } else {
+                    // LHS must be ref decayed for the offset method call's self param
+                    let lhs = self.convert_expr(ctx.used().decay_ref(), *lhs)?;
+                    lhs.result_map(|lhs| {
+                        // stmts.extend(lhs.stmts_mut());
+                        // is_unsafe = is_unsafe || lhs.is_unsafe();
 
-                        let t = self.ast_context[arr]
-                            .kind
+                        let lhs_type_id = lhs_node
                             .get_type()
-                            .ok_or_else(|| format_err!("bad arr type"))?;
-                        let var_elt_type_id = match self.ast_context.resolve_type(t).kind {
-                            CTypeKind::ConstantArray(..) => None,
-                            CTypeKind::IncompleteArray(..) => None,
-                            CTypeKind::VariableArray(elt, _) => Some(elt),
-                            ref other => panic!("Unexpected array type {:?}", other),
+                            .ok_or_else(|| format_err!("bad lhs type"))?;
+
+                        // Determine the type of element being indexed
+                        let pointee_type_id = match self.ast_context.resolve_type(lhs_type_id).kind
+                        {
+                            CTypeKind::Pointer(pointee_id) => pointee_id,
+                            _ => {
+                                return Err(format_err!(
+                                    "Subscript applied to non-pointer: {:?}",
+                                    lhs
+                                )
+                                .into());
+                            }
                         };
 
-                        let lhs = self.convert_expr(ctx.used(), arr)?;
-                        Ok(lhs.map(|lhs| {
-                            // stmts.extend(lhs.stmts_mut());
-                            // is_unsafe = is_unsafe || lhs.is_unsafe();
-
-                            // Don't dereference the offset if we're still within the variable portion
-                            if let Some(elt_type_id) = var_elt_type_id {
-                                let mul = self.compute_size_of_expr(elt_type_id);
-                                pointer_offset(lhs, rhs, mul, false, true)
-                            } else {
-                                mk().index_expr(lhs, cast_int(rhs, "usize", false))
-                            }
-                        }))
-                    } else {
-                        // LHS must be ref decayed for the offset method call's self param
-                        let lhs = self.convert_expr(ctx.used().decay_ref(), *lhs)?;
-                        lhs.result_map(|lhs| {
-                            // stmts.extend(lhs.stmts_mut());
-                            // is_unsafe = is_unsafe || lhs.is_unsafe();
-
-                            let lhs_type_id = lhs_node
-                                .get_type()
-                                .ok_or_else(|| format_err!("bad lhs type"))?;
-
-                            // Determine the type of element being indexed
-                            let pointee_type_id =
-                                match self.ast_context.resolve_type(lhs_type_id).kind {
-                                    CTypeKind::Pointer(pointee_id) => pointee_id,
-                                    _ => {
-                                        return Err(format_err!(
-                                            "Subscript applied to non-pointer: {:?}",
-                                            lhs
-                                        )
-                                        .into());
-                                    }
-                                };
-
-                            let mul = self.compute_size_of_expr(pointee_type_id.ctype);
-                            Ok(pointer_offset(lhs, rhs, mul, false, true))
-                        })
-                    }
+                        let mul = self.compute_size_of_expr(pointee_type_id.ctype);
+                        Ok(pointer_offset(lhs, rhs, mul, false, true))
+                    })
+                    // }
                 })
             }
 
