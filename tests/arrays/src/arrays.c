@@ -14,6 +14,12 @@ void entry(const unsigned buffer_size, int buffer[const])
     struct {char* x; int y;} arr3[1] = {};
     arr3[0].y += 9;
 
+    int arr4[16] = {0};
+    arr4[15] += 9;
+
+    struct {char* x; int y;} arr5[1] = { { 1, 2 } };
+    arr5[0].y += 9;
+
     int i = 0;
 
     char abc[] = "abc";
